@@ -76,10 +76,10 @@ teamai init ./my-app                 # smart init in specific directory
 teamai install                       # full install (no scan, raw template copy)
 
 # One-liner from GitHub (no npm)
-curl -fsSL https://raw.githubusercontent.com/roytoledo-star/team-ai-plugin/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roytol-abra/team-ai-plugin/main/install.sh | bash
 
 # Private repo
-gh repo clone roytoledo-star/team-ai-plugin /tmp/team-ai-plugin && /tmp/team-ai-plugin/setup.sh .
+gh repo clone roytol-abra/team-ai-plugin /tmp/team-ai-plugin && /tmp/team-ai-plugin/setup.sh .
 ```
 
 ### CLI Commands
