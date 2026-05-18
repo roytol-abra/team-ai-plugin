@@ -1,0 +1,28 @@
+reviews:
+  profile: "assertive"
+  high_level_summary: true
+  poem: false
+  review_status: true
+  path_instructions:
+    - path: "src/**"
+      instructions: "Check for DRY violations, hardcoded values, and separation of concerns. Flag magic numbers and strings."
+    - path: "**/*.test.*"
+      instructions: "Verify test coverage for edge cases, not just happy path. Check for flaky patterns."
+    - path: "**/*.spec.*"
+      instructions: "Verify test coverage for edge cases, not just happy path. Check for flaky patterns."
+    - path: "**/api/**"
+      instructions: "Check input validation, error handling, auth checks on every endpoint. No secrets in code."
+    - path: "**/*.css"
+      instructions: "No hardcoded colors or sizes — use design tokens. Check responsive breakpoints."
+    - path: "**/*.scss"
+      instructions: "No hardcoded colors or sizes — use design tokens. Check responsive breakpoints."
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - dev
+      - master
+early_access: true
+chat:
+  auto_reply: true

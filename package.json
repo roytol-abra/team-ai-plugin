@@ -1,0 +1,32 @@
+{
+  "name": "teamai-plugin",
+  "version": "1.0.0",
+  "description": "Claude Code plugin for dev teams — code review, security scanning, PR workflows, and agent orchestration",
+  "bin": {
+    "teamai": "./bin/teamai.js"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "code-review",
+    "ai",
+    "developer-tools",
+    "mcp",
+    "agents"
+  ],
+  "files": [
+    "bin/",
+    ".claude/",
+    ".coderabbit.yaml",
+    "CLAUDE.md",
+    "standards/",
+    "hooks/",
+    "setup.sh",
+    "install.sh"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/roytoledo-star/team-ai-plugin.git"
+  }
+}

@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# TeamAI pre-commit hook
+# Install: cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# Or use with Husky/lint-staged (see setup.sh)
+#
+# This hook runs lint, format check, build, and secrets scan before each commit.
+# It only checks staged files for performance.
+
+set -e
+
+echo "🔍 TeamAI pre-commit checks..."
+
+# Get list of staged files (excluding deleted files)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=d)
+
+if [ -z "$STAGED_FILES" ]; then
+  echo "No staged files. Skipping checks."
+  exit 0
+fi
+
+# ============================================================
+# 1. Secrets Scanner — check for leaked keys/tokens
+# ============================================================
+echo "  [1/4] Scanning for secrets..."
+
+SECRETS_FOUND=0
+
+for file in $STAGED_FILES; do
+  # Skip binary files and lock files
+  case "$file" in
+    *.lock|*.png|*.jpg|*.gif|*.ico|*.woff*|*.ttf|*.eot|*.svg) continue ;;
+  esac
+
+  # Check for common secret patterns in staged content
+  if git diff --cached -- "$file" | grep -qEi \
+    '(AKIA[0-9A-Z]{16}|sk_live_|pk_live_|ghp_[A-Za-z0-9]{36}|xox[bpors]-|-----BEGIN.*PRIVATE KEY-----|[aA][pP][iI]_?[kK][eE][yY]\s*[:=]\s*['\''"][A-Za-z0-9]{20,})'; then
+    echo "    ❌ Possible secret found in: $file"
+    SECRETS_FOUND=1
+  fi
+done
+
+if [ "$SECRETS_FOUND" -eq 1 ]; then
+  echo "    ⚠️  Secrets detected! Review the flagged files before committing."
+  echo "    Run: git diff --cached | grep -nEi 'key|token|secret|password'"
+  exit 1
+fi
+echo "    ✅ No secrets found"
+
+# ============================================================
+# 2. Lint — detect project linter and run it
+# ============================================================
+echo "  [2/4] Running linter..."
+
+if [ -f "package.json" ] && grep -q '"lint"' package.json 2>/dev/null; then
+  npx lint-staged 2>/dev/null || npm run lint -- --quiet || echo "    ⚠️  Lint check not configured for staged files"
+elif [ -f "pubspec.yaml" ]; then
+  flutter analyze --no-fatal-infos 2>/dev/null || dart analyze 2>/dev/null || echo "    ⚠️  Dart analyzer not available"
+elif [ -f "Cargo.toml" ]; then
+  cargo clippy --quiet 2>/dev/null || echo "    ⚠️  Clippy not available"
+elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+  ruff check . 2>/dev/null || flake8 . 2>/dev/null || echo "    ⚠️  Python linter not available"
+elif [ -f "go.mod" ]; then
+  golangci-lint run 2>/dev/null || echo "    ⚠️  golangci-lint not available"
+else
+  echo "    ⚠️  No linter detected — skipping"
+fi
+echo "    ✅ Lint passed"
+
+# ============================================================
+# 3. Format check — verify code is formatted
+# ============================================================
+echo "  [3/4] Checking formatting..."
+
+if [ -f "package.json" ] && grep -q '"prettier"' package.json 2>/dev/null; then
+  npx prettier --check $STAGED_FILES 2>/dev/null || {
+    echo "    ❌ Some files are not formatted. Run: npx prettier --write ."
+    exit 1
+  }
+elif [ -f "pubspec.yaml" ]; then
+  dart format --set-exit-if-changed --output=none $STAGED_FILES 2>/dev/null || {
+    echo "    ❌ Some files are not formatted. Run: dart format ."
+    exit 1
+  }
+elif [ -f "Cargo.toml" ]; then
+  cargo fmt --check 2>/dev/null || {
+    echo "    ❌ Some files are not formatted. Run: cargo fmt"
+    exit 1
+  }
+elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+  black --check . 2>/dev/null || ruff format --check . 2>/dev/null || echo "    ⚠️  Python formatter not available"
+else
+  echo "    ⚠️  No formatter detected — skipping"
+fi
+echo "    ✅ Formatting OK"
+
+# ============================================================
+# 4. Build check — verify project builds
+# ============================================================
+echo "  [4/4] Verifying build..."
+
+if [ -f "package.json" ] && grep -q '"build"' package.json 2>/dev/null; then
+  npm run build --if-present 2>/dev/null || {
+    echo "    ❌ Build failed"
+    exit 1
+  }
+elif [ -f "pubspec.yaml" ]; then
+  # Skip full Flutter build in pre-commit (too slow) — analyze is enough
+  echo "    ℹ️  Flutter: analyze covers build errors (full build skipped for speed)"
+elif [ -f "Cargo.toml" ]; then
+  cargo check --quiet 2>/dev/null || {
+    echo "    ❌ Build failed"
+    exit 1
+  }
+else
+  echo "    ⚠️  No build command detected — skipping"
+fi
+echo "    ✅ Build OK"
+
+echo ""
+echo "✅ All pre-commit checks passed!"

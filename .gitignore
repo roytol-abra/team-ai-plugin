@@ -1,0 +1,9 @@
+# Claude Code local settings (user-specific, not part of the plugin)
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if running setup locally)
+node_modules/
