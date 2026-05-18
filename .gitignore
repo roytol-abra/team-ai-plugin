@@ -7,3 +7,4 @@ Thumbs.db
 
 # Node (if running setup locally)
 node_modules/
+.npmrc
