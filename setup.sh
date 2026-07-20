@@ -5,7 +5,7 @@
 # Usage: ./setup.sh [target-project-directory]
 #
 # Installs the TeamAI plugin into a target project:
-# - Copies .claude config (commands, agents, rules, settings)
+# - Copies .claude config (commands, agents, rules, skills, settings)
 # - Copies CLAUDE.md template and style guide
 # - Installs git pre-commit hook
 # - Installs OpenSpec (if not present)
@@ -119,6 +119,21 @@ if [ ! -f "$TARGET_DIR/.claude/settings.json" ]; then
 else
   echo "  ~ settings.json exists — please merge manually:"
   echo "    $PLUGIN_DIR/.claude/settings.json"
+fi
+
+# Copy skills (each skill is a directory with SKILL.md + optional subfolders,
+# so copy the whole skill dir; don't overwrite a skill the project already has)
+if [ -d "$PLUGIN_DIR/.claude/skills" ]; then
+  mkdir -p "$TARGET_DIR/.claude/skills"
+  for skill_dir in "$PLUGIN_DIR/.claude/skills/"*/; do
+    skill_name=$(basename "$skill_dir")
+    if [ ! -d "$TARGET_DIR/.claude/skills/$skill_name" ]; then
+      cp -R "$skill_dir" "$TARGET_DIR/.claude/skills/$skill_name"
+      echo "  + skills/$skill_name"
+    else
+      echo "  ~ skills/$skill_name (exists — skipped)"
+    fi
+  done
 fi
 
 # --------------------------------------------------
@@ -275,7 +290,7 @@ echo "  ✅ TeamAI Plugin installed!"
 echo "================================================"
 echo ""
 echo "  What was auto-installed:"
-echo "    ✅ .claude/ config (commands, agents, rules, settings)"
+echo "    ✅ .claude/ config (commands, agents, rules, skills, settings)"
 echo "    ✅ CLAUDE.md template"
 echo "    ✅ Style guide"
 echo "    ✅ Git pre-commit hook"
@@ -295,6 +310,9 @@ echo "    /project:keys-scan           — secrets & API keys scanner"
 echo "    /project:readme-update       — suggest README updates"
 echo "    /project:check-standards     — audit against style guide"
 echo "    /project:openspec-setup      — OpenSpec workflow guide"
+echo ""
+echo "  Available skills (auto-trigger, or invoke with /pr-deep-review):"
+echo "    pr-deep-review               — orchestrated deep PR/branch review"
 echo ""
 echo "  OpenSpec commands:"
 echo "    /opsx:propose <idea>         — create a change proposal"

@@ -14,6 +14,12 @@ A comprehensive Claude Code plugin that gives your team standardized code review
 | `/project:check-standards` | Audit files against the team style guide |
 | `/project:openspec-setup` | Setup guide and workflow for OpenSpec spec-first development |
 
+### Skills
+Skills auto-trigger when the request matches, or can be invoked by name:
+| Skill | Description |
+|-------|-------------|
+| `pr-deep-review` | Orchestrated deep review of a PR or branch diff — fans out CodeRabbit, `/simplify`, linters, and read-only review agents (security, DRY, architecture, correctness), then synthesizes one prioritized report. Invoke with `/pr-deep-review` or just ask to "review this branch". |
+
 ### Agents
 Specialized agents spawned by commands or manually via agent teams:
 - **Backend** — APIs, databases, server-side architecture
@@ -105,7 +111,7 @@ teamai --help            # Show help
 ### Manual Install
 
 Copy these into your project root:
-1. `.claude/` directory (commands, agents, rules, settings)
+1. `.claude/` directory (commands, agents, rules, skills, settings)
 2. `CLAUDE.md`
 3. `standards/style-guide.md`
 4. `.coderabbit.yaml`
@@ -117,7 +123,7 @@ Then install OpenSpec: `npm install -g @fission-ai/openspec@latest && openspec i
 
 | Step | What | Auto? |
 |------|------|-------|
-| 1 | Copies `.claude/` config (commands, agents, rules, settings) | ✅ |
+| 1 | Copies `.claude/` config (commands, agents, rules, skills, settings) | ✅ |
 | 2 | Copies `CLAUDE.md` template | ✅ |
 | 3 | Copies `standards/style-guide.md` | ✅ |
 | 4 | Installs git pre-commit hook | ✅ |
@@ -173,6 +179,11 @@ Project-specific rules in `CLAUDE.md` always override the style guide defaults.
     code-quality.md         — code quality rules
     security.md             — security rules
     agent-orchestration.md  — agent team coordination rules
+  skills/
+    pr-deep-review/         — orchestrated deep PR/branch review
+      SKILL.md
+      references/
+        review-checklist.md — manual review checklist
   settings.json             — MCP servers, permissions, hooks
 CLAUDE.md                   — project config template
 standards/
