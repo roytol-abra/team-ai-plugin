@@ -81,14 +81,10 @@ npx teamai-plugin init --interactive   # or -i
 
 ### 4. `curl | bash` — from GitHub, no npm
 
-> ⚠️ **Confirm the repo URL first.** The default in `install.sh` currently
-> points at a repo path that may be out of date. Set `TEAM_AI_REPO` to the
-> correct URL, or prefer the npm methods above.
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<org>/team-ai-plugin/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roytoledo-star/team-ai-plugin/main/install.sh | bash
 # into a specific project:
-curl -fsSL .../install.sh | bash -s /path/to/project
+curl -fsSL https://raw.githubusercontent.com/roytoledo-star/team-ai-plugin/main/install.sh | bash -s /path/to/project
 # private repo — authenticate first: gh auth login
 # or override the source:
 TEAM_AI_REPO=https://github.com/<org>/team-ai-plugin.git bash install.sh

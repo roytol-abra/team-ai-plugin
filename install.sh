@@ -3,8 +3,8 @@
 # TeamAI Plugin — Remote Installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/roytol-abra/team-ai-plugin/main/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/roytol-abra/team-ai-plugin/main/install.sh | bash -s /path/to/project
+#   curl -fsSL https://raw.githubusercontent.com/roytoledo-star/team-ai-plugin/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/roytoledo-star/team-ai-plugin/main/install.sh | bash -s /path/to/project
 #
 # What it does:
 #   1. Clones the plugin repo to a temp directory
@@ -15,7 +15,7 @@
 set -e
 
 TARGET_DIR="${1:-.}"
-REPO_URL="${TEAM_AI_REPO:-https://github.com/roytol-abra/team-ai-plugin.git}"
+REPO_URL="${TEAM_AI_REPO:-https://github.com/roytoledo-star/team-ai-plugin.git}"
 BRANCH="${TEAM_AI_BRANCH:-main}"
 TMP_DIR=$(mktemp -d)
 
