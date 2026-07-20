@@ -59,6 +59,9 @@ Specialized agents spawned by commands or manually via agent teams:
 
 ## Installation
 
+> **Full guide:** see [INSTALL.md](INSTALL.md) for prerequisites, every install
+> method, updating, verifying, and troubleshooting. Quick version below.
+
 ### `teamai init` (recommended)
 
 ```bash
