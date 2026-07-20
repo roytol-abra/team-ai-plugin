@@ -4,7 +4,7 @@ const { execSync, spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const VERSION = '1.0.0';
+const VERSION = require('../package.json').version;
 const PLUGIN_DIR = path.resolve(__dirname, '..');
 
 const HELP = `

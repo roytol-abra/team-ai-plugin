@@ -548,6 +548,44 @@ function copyDir(srcDir, destDir, label) {
   console.log(`    + ${label}: ${added} added, ${skipped} preserved`);
 }
 
+// Recursively copy a directory tree (used for skills, which have subfolders
+// like references/ that the flat, .md-only copyDir can't carry).
+function copyTree(srcDir, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const src = path.join(srcDir, entry.name);
+    const dest = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyTree(src, dest);
+    } else {
+      fs.copyFileSync(src, dest);
+    }
+  }
+}
+
+// Copy each skill directory whole (SKILL.md + any subfolders). Skip a skill the
+// project already has, so local customizations are preserved — mirrors setup.sh.
+function copySkills(srcDir, destDir, label) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(destDir, { recursive: true });
+
+  let added = 0;
+  let skipped = 0;
+  const skills = fs
+    .readdirSync(srcDir, { withFileTypes: true })
+    .filter(e => e.isDirectory());
+  for (const skill of skills) {
+    const dest = path.join(destDir, skill.name);
+    if (fs.existsSync(dest)) {
+      skipped++;
+    } else {
+      copyTree(path.join(srcDir, skill.name), dest);
+      added++;
+    }
+  }
+  console.log(`    + ${label}: ${added} added, ${skipped} preserved`);
+}
+
 // ─── Main Init ──────────────────────────────────────────────
 
 function init(targetDir) {
@@ -630,11 +668,12 @@ function init(targetDir) {
 
   // ── Phase 3: Copy commands, agents, rules ──
   console.log('');
-  console.log('  [3/6] Installing commands, agents, and rules...');
+  console.log('  [3/6] Installing commands, agents, rules, and skills...');
 
   copyDir(path.join(PLUGIN_DIR, '.claude', 'commands'), path.join(targetDir, '.claude', 'commands'), 'commands');
   copyDir(path.join(PLUGIN_DIR, '.claude', 'agents'), path.join(targetDir, '.claude', 'agents'), 'agents');
   copyDir(path.join(PLUGIN_DIR, '.claude', 'rules'), path.join(targetDir, '.claude', 'rules'), 'rules');
+  copySkills(path.join(PLUGIN_DIR, '.claude', 'skills'), path.join(targetDir, '.claude', 'skills'), 'skills');
 
   // Style guide
   copyFile(
@@ -668,9 +707,18 @@ function init(targetDir) {
     const hookDest = path.join(targetDir, '.git', 'hooks', 'pre-commit');
     const hookSrc = path.join(PLUGIN_DIR, 'hooks', 'pre-commit');
     fs.mkdirSync(path.join(targetDir, '.git', 'hooks'), { recursive: true });
-    fs.copyFileSync(hookSrc, hookDest);
-    fs.chmodSync(hookDest, '755');
-    console.log('    + .git/hooks/pre-commit');
+    if (fs.existsSync(hookDest)) {
+      // Never clobber an existing hook — save ours alongside for the user to merge.
+      const sample = `${hookDest}.teamai`;
+      fs.copyFileSync(hookSrc, sample);
+      fs.chmodSync(sample, '755');
+      console.log('    ~ .git/hooks/pre-commit (exists — preserved)');
+      console.log('      TeamAI hook saved as pre-commit.teamai — merge if you want it');
+    } else {
+      fs.copyFileSync(hookSrc, hookDest);
+      fs.chmodSync(hookDest, '755');
+      console.log('    + .git/hooks/pre-commit');
+    }
   }
 
   // .gitignore additions

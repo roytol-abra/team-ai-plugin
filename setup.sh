@@ -171,9 +171,17 @@ echo ""
 echo "[4/7] Installing git hooks..."
 
 if [ -d "$TARGET_DIR/.git" ]; then
-  cp "$PLUGIN_DIR/hooks/pre-commit" "$TARGET_DIR/.git/hooks/pre-commit"
-  chmod +x "$TARGET_DIR/.git/hooks/pre-commit"
-  echo "  + .git/hooks/pre-commit"
+  if [ -f "$TARGET_DIR/.git/hooks/pre-commit" ]; then
+    # Never clobber an existing hook — save ours alongside for the user to merge.
+    cp "$PLUGIN_DIR/hooks/pre-commit" "$TARGET_DIR/.git/hooks/pre-commit.teamai"
+    chmod +x "$TARGET_DIR/.git/hooks/pre-commit.teamai"
+    echo "  ~ .git/hooks/pre-commit (exists — preserved)"
+    echo "    TeamAI hook saved as pre-commit.teamai — merge if you want it"
+  else
+    cp "$PLUGIN_DIR/hooks/pre-commit" "$TARGET_DIR/.git/hooks/pre-commit"
+    chmod +x "$TARGET_DIR/.git/hooks/pre-commit"
+    echo "  + .git/hooks/pre-commit"
+  fi
 else
   echo "  ⚠️  Not a git repository — skipping hook installation"
   echo "    Run 'git init' first, then re-run this script"
