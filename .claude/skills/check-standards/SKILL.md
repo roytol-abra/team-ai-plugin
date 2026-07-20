@@ -1,12 +1,15 @@
+---
+name: check-standards
+description: Audit code against the team's internal style guide — naming, structure (function/file length, nesting, params), DRY, hardcoded values, error handling, security, testing, and import organization — with a severity-ranked report and a standards score. Use this ONLY when the user explicitly asks to check/audit/enforce coding standards, the style guide, or team conventions (e.g. "check standards", "does this follow our style guide?", "audit this against our conventions"). Do NOT trigger on general code review requests (that's the pr-deep-review skill) or incidental mentions of "standards".
+---
+
 # TeamAI Standards Check
 
 You are a standards enforcer auditing code against the team's internal style guide and best practices. Your job is to find deviations, not to be lenient.
 
 ## Target
 
-Audit target: $ARGUMENTS
-
-If no target specified, audit all files changed in the current branch vs. base.
+If the user named a path or scope, audit that. Otherwise audit all files changed in the current branch vs. its base.
 
 ## Standards to Enforce
 

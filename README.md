@@ -9,9 +9,7 @@ A comprehensive Claude Code plugin that gives your team standardized code review
 |---------|-------------|
 | `/project:TeamAI:CodeReview` | Multi-agent code review (architecture, DRY, security, performance) |
 | `/project:TeamAI:PRReady` | Pre-PR audit: lint, build, tests, secrets scan, PR summary generation |
-| `/project:keys-scan` | Scan codebase for leaked secrets, API keys, tokens, credentials |
 | `/project:readme-update` | Analyze recent changes and suggest documentation updates |
-| `/project:check-standards` | Audit files against the team style guide |
 | `/project:openspec-setup` | Setup guide and workflow for OpenSpec spec-first development |
 
 ### Skills
@@ -19,6 +17,8 @@ Skills auto-trigger when the request matches, or can be invoked by name:
 | Skill | Description |
 |-------|-------------|
 | `pr-deep-review` | Orchestrated deep review of a PR or branch diff — fans out CodeRabbit, `/simplify`, linters, and read-only review agents (security, DRY, architecture, correctness), then synthesizes one prioritized report. Invoke with `/pr-deep-review` or just ask to "review this branch". |
+| `keys-scan` | Scan the codebase for leaked secrets, API keys, tokens, and credentials (pattern + file + git-history checks). Triggers on "scan for secrets" or invoke with `/keys-scan`. |
+| `check-standards` | Audit code against the team style guide (naming, structure, DRY, hardcoded values, error handling, security, tests, imports) with a standards score. Triggers on "check standards" or invoke with `/check-standards`. |
 
 ### Agents
 Specialized agents spawned by commands or manually via agent teams:
@@ -164,9 +164,7 @@ Project-specific rules in `CLAUDE.md` always override the style guide defaults.
   commands/
     TeamAI:CodeReview.md    — multi-agent code review
     TeamAI:PRReady.md       — PR readiness check
-    keys-scan.md            — secrets scanner
     readme-update.md        — README update suggestions
-    check-standards.md      — style guide audit
     openspec-setup.md       — OpenSpec workflow guide
   agents/
     backend.md              — backend specialist agent
@@ -184,6 +182,10 @@ Project-specific rules in `CLAUDE.md` always override the style guide defaults.
       SKILL.md
       references/
         review-checklist.md — manual review checklist
+    keys-scan/              — secrets & API keys scanner
+      SKILL.md
+    check-standards/        — team style-guide audit
+      SKILL.md
   settings.json             — MCP servers, permissions, hooks
 CLAUDE.md                   — project config template
 standards/

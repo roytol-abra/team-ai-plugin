@@ -12,9 +12,11 @@ const HELP = `
 
   Usage:
     teamai init [path]          Scan project, detect stack, and install only what's needed (recommended)
+      -i, --interactive         Prompt for which optional components to install
     teamai install [path]       Full install — copies all files without scanning
     teamai update [path]        Update an existing installation (re-copies, preserves customizations)
     teamai doctor [path]        Check installation health and integration status
+      --fix                     Repair any missing plugin files (won't overwrite your edits)
     teamai --version            Show version
     teamai --help               Show this help
 
@@ -74,14 +76,24 @@ function runSetup(targetDir, mode) {
   });
 }
 
-function doctor(targetDir) {
+function doctor(targetDir, opts = {}) {
   console.log(LOGO);
   console.log(`  Checking: ${targetDir}\n`);
+
+  // --fix repairs anything MISSING (safe inverse of skip-if-exists); it never
+  // overwrites files the user may have edited. Runs before the checks below.
+  if (opts.fix) {
+    console.log('  Repairing missing plugin files (--fix)...');
+    const { copyPluginFiles } = require('./init');
+    copyPluginFiles(targetDir);
+    console.log('');
+  }
 
   const checks = [
     { name: '.claude/commands/', check: () => fs.existsSync(path.join(targetDir, '.claude', 'commands')) },
     { name: '.claude/agents/', check: () => fs.existsSync(path.join(targetDir, '.claude', 'agents')) },
     { name: '.claude/rules/', check: () => fs.existsSync(path.join(targetDir, '.claude', 'rules')) },
+    { name: '.claude/skills/', check: () => fs.existsSync(path.join(targetDir, '.claude', 'skills')) },
     { name: '.claude/settings.json', check: () => fs.existsSync(path.join(targetDir, '.claude', 'settings.json')) },
     { name: 'CLAUDE.md', check: () => fs.existsSync(path.join(targetDir, 'CLAUDE.md')) },
     { name: 'standards/style-guide.md', check: () => fs.existsSync(path.join(targetDir, 'standards', 'style-guide.md')) },
@@ -178,6 +190,14 @@ function doctor(targetDir) {
     console.log(`    🤖 ${agents.length} agents installed`);
   }
 
+  // Skills count (each skill is a directory containing a SKILL.md)
+  const skillsDir = path.join(targetDir, '.claude', 'skills');
+  if (fs.existsSync(skillsDir)) {
+    const skills = fs.readdirSync(skillsDir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && fs.existsSync(path.join(skillsDir, e.name, 'SKILL.md')));
+    console.log(`    🧠 ${skills.length} skills installed`);
+  }
+
   // Integrations
   console.log('\n  Integrations:');
   for (const { name, check } of integrations) {
@@ -190,7 +210,8 @@ function doctor(targetDir) {
     console.log('  ✅ TeamAI plugin is fully installed!');
     console.log('  Open Claude Code and run: /project:TeamAI:CodeReview');
   } else {
-    console.log('  ⚠️  Some files are missing. Run: teamai install');
+    console.log('  ⚠️  Some files are missing. Run: teamai doctor --fix  (repairs missing files)');
+    console.log('     For generated files (CLAUDE.md, settings.json), run: teamai init');
   }
   console.log('');
 }
@@ -215,7 +236,11 @@ const remainingArgs = args.slice(1);
 switch (command) {
   case 'init': {
     const { init } = require('./init');
-    init(resolveTarget(remainingArgs));
+    const interactive = remainingArgs.includes('--interactive') || remainingArgs.includes('-i');
+    init(resolveTarget(remainingArgs), { interactive }).catch((err) => {
+      console.error(`  ❌ init failed: ${err.message}`);
+      process.exit(1);
+    });
     break;
   }
 
@@ -228,7 +253,7 @@ switch (command) {
     break;
 
   case 'doctor':
-    doctor(resolveTarget(remainingArgs));
+    doctor(resolveTarget(remainingArgs), { fix: remainingArgs.includes('--fix') });
     break;
 
   default:

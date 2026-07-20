@@ -15,6 +15,8 @@ set -e
 
 PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET_DIR="${1:-.}"
+# Pinned so installs are reproducible (not whatever @latest resolves to today).
+OPENSPEC_PKG="@fission-ai/openspec@1.4.0"
 
 # Resolve to absolute path
 TARGET_DIR="$(cd "$TARGET_DIR" 2>/dev/null && pwd)" || {
@@ -197,7 +199,7 @@ if command -v openspec &>/dev/null; then
   echo "  ✅ OpenSpec already installed ($(openspec --version 2>/dev/null || echo 'version unknown'))"
 else
   echo "  Installing OpenSpec globally..."
-  npm install -g @fission-ai/openspec@latest
+  npm install -g "$OPENSPEC_PKG"
   if command -v openspec &>/dev/null; then
     echo "  ✅ OpenSpec installed successfully"
   else
@@ -314,13 +316,13 @@ echo ""
 echo "  Available commands:"
 echo "    /project:TeamAI:CodeReview   — code review (local) + CodeRabbit (PR)"
 echo "    /project:TeamAI:PRReady      — gates → code review → PR summary"
-echo "    /project:keys-scan           — secrets & API keys scanner"
 echo "    /project:readme-update       — suggest README updates"
-echo "    /project:check-standards     — audit against style guide"
 echo "    /project:openspec-setup      — OpenSpec workflow guide"
 echo ""
-echo "  Available skills (auto-trigger, or invoke with /pr-deep-review):"
+echo "  Available skills (auto-trigger, or invoke by name):"
 echo "    pr-deep-review               — orchestrated deep PR/branch review"
+echo "    keys-scan                    — secrets & API keys scanner"
+echo "    check-standards              — audit against the team style guide"
 echo ""
 echo "  OpenSpec commands:"
 echo "    /opsx:propose <idea>         — create a change proposal"

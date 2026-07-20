@@ -3,8 +3,13 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const readline = require('node:readline');
 
 const PLUGIN_DIR = path.resolve(__dirname, '..');
+
+// Pinned so installs are reproducible (not whatever @latest resolves to today).
+const OPENSPEC_VERSION = '1.4.0';
+const OPENSPEC_PKG = `@fission-ai/openspec@${OPENSPEC_VERSION}`;
 
 // ─── Project Scanner ────────────────────────────────────────
 
@@ -586,14 +591,85 @@ function copySkills(srcDir, destDir, label) {
   console.log(`    + ${label}: ${added} added, ${skipped} preserved`);
 }
 
+// Default set of installable components. `init` narrows this via --interactive;
+// `doctor --fix` uses the full set to repair anything missing.
+const DEFAULT_CHOICES = {
+  commands: true,
+  agents: true,
+  rules: true,
+  skills: true,
+  standards: true,
+  coderabbit: true,
+  hook: true,
+  openspec: true,
+};
+
+// Copy the static plugin files (skip-if-exists), gated by `choices`. Single
+// source of truth shared by `init` and `doctor --fix` — no second copy path.
+function copyPluginFiles(targetDir, choices = {}) {
+  const c = { ...DEFAULT_CHOICES, ...choices };
+  if (c.commands) copyDir(path.join(PLUGIN_DIR, '.claude', 'commands'), path.join(targetDir, '.claude', 'commands'), 'commands');
+  if (c.agents) copyDir(path.join(PLUGIN_DIR, '.claude', 'agents'), path.join(targetDir, '.claude', 'agents'), 'agents');
+  if (c.rules) copyDir(path.join(PLUGIN_DIR, '.claude', 'rules'), path.join(targetDir, '.claude', 'rules'), 'rules');
+  if (c.skills) copySkills(path.join(PLUGIN_DIR, '.claude', 'skills'), path.join(targetDir, '.claude', 'skills'), 'skills');
+  if (c.standards) copyFile(path.join(PLUGIN_DIR, 'standards', 'style-guide.md'), path.join(targetDir, 'standards', 'style-guide.md'), 'standards/style-guide.md');
+  if (c.coderabbit) copyFile(path.join(PLUGIN_DIR, '.coderabbit.yaml'), path.join(targetDir, '.coderabbit.yaml'), '.coderabbit.yaml');
+}
+
+// Ask the user which optional components to install. Core config (CLAUDE.md,
+// settings.json, commands, rules) is always installed; only the rest is opt-out.
+async function promptChoices() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  let closed = false;
+  rl.on('close', () => { closed = true; });
+
+  // Default is "yes". If stdin closes early (EOF / non-TTY) we resolve the
+  // pending and all later prompts with the default rather than hanging and
+  // leaving a half-finished install.
+  const ask = (q) =>
+    new Promise((resolve) => {
+      if (closed) return resolve(true);
+      let done = false;
+      const finish = (v) => { if (!done) { done = true; resolve(v); } };
+      rl.question(`    ${q} [Y/n] `, (a) => finish(!/^n/i.test(a.trim())));
+      rl.once('close', () => finish(true));
+    });
+
+  console.log('  Interactive mode — choose what to install (Enter = yes):');
+  const choices = {
+    commands: true,
+    rules: true,
+    agents: await ask('Install specialized agents?'),
+    skills: await ask('Install skills (pr-deep-review, keys-scan, check-standards)?'),
+    standards: await ask('Install the team style guide?'),
+    coderabbit: await ask('Install the CodeRabbit config?'),
+    hook: await ask('Install the git pre-commit hook?'),
+    openspec: await ask('Set up OpenSpec?'),
+  };
+  rl.close();
+  return choices;
+}
+
 // ─── Main Init ──────────────────────────────────────────────
 
-function init(targetDir) {
+async function init(targetDir, opts = {}) {
   console.log('');
   console.log('  ╔════════════════════════════════════╗');
   console.log('  ║       TeamAI — Smart Init          ║');
   console.log('  ╚════════════════════════════════════╝');
   console.log('');
+
+  // Interactive prompting only works on a real terminal; piped/CI stdin can't
+  // drive it. Outside a TTY we fall back to installing everything (the default),
+  // so scripted runs are never left half-configured.
+  let choices = { ...DEFAULT_CHOICES };
+  if (opts.interactive) {
+    if (process.stdin.isTTY) {
+      choices = await promptChoices();
+    } else {
+      console.log('  ⚠️  --interactive needs a terminal; installing all components.');
+    }
+  }
 
   // ── Phase 1: Scan ──
   console.log('  [1/6] Scanning project...');
@@ -666,34 +742,19 @@ function init(targetDir) {
     }
   }
 
-  // ── Phase 3: Copy commands, agents, rules ──
+  // ── Phase 3: Copy commands, agents, rules, skills ──
   console.log('');
   console.log('  [3/6] Installing commands, agents, rules, and skills...');
 
-  copyDir(path.join(PLUGIN_DIR, '.claude', 'commands'), path.join(targetDir, '.claude', 'commands'), 'commands');
-  copyDir(path.join(PLUGIN_DIR, '.claude', 'agents'), path.join(targetDir, '.claude', 'agents'), 'agents');
-  copyDir(path.join(PLUGIN_DIR, '.claude', 'rules'), path.join(targetDir, '.claude', 'rules'), 'rules');
-  copySkills(path.join(PLUGIN_DIR, '.claude', 'skills'), path.join(targetDir, '.claude', 'skills'), 'skills');
-
-  // Style guide
-  copyFile(
-    path.join(PLUGIN_DIR, 'standards', 'style-guide.md'),
-    path.join(targetDir, 'standards', 'style-guide.md'),
-    'standards/style-guide.md'
-  );
-
-  // CodeRabbit config
-  copyFile(
-    path.join(PLUGIN_DIR, '.coderabbit.yaml'),
-    path.join(targetDir, '.coderabbit.yaml'),
-    '.coderabbit.yaml'
-  );
+  copyPluginFiles(targetDir, choices);
 
   // ── Phase 4: Git hooks ──
   console.log('');
   console.log('  [4/6] Setting up git hooks...');
 
-  if (!scan.isGitRepo) {
+  if (!choices.hook) {
+    console.log('    ~ skipped (per your choice)');
+  } else if (!scan.isGitRepo) {
     console.log('    Not a git repository. Initializing...');
     try {
       execSync('git init', { cwd: targetDir, stdio: 'pipe' });
@@ -703,7 +764,7 @@ function init(targetDir) {
     }
   }
 
-  if (fs.existsSync(path.join(targetDir, '.git'))) {
+  if (choices.hook && fs.existsSync(path.join(targetDir, '.git'))) {
     const hookDest = path.join(targetDir, '.git', 'hooks', 'pre-commit');
     const hookSrc = path.join(PLUGIN_DIR, 'hooks', 'pre-commit');
     fs.mkdirSync(path.join(targetDir, '.git', 'hooks'), { recursive: true });
@@ -737,39 +798,43 @@ function init(targetDir) {
   console.log('');
   console.log('  [5/6] Setting up OpenSpec...');
 
-  let hasOpenSpec = false;
-  try {
-    execSync('openspec --version', { stdio: 'pipe' });
-    hasOpenSpec = true;
-  } catch {}
-
-  if (!hasOpenSpec) {
-    console.log('    Installing OpenSpec...');
-    try {
-      execSync('npm install -g @fission-ai/openspec@latest', { stdio: 'pipe' });
-      hasOpenSpec = true;
-      console.log('    + OpenSpec installed globally');
-    } catch {
-      console.log('    ⚠️  Failed to install OpenSpec — install manually: npm i -g @fission-ai/openspec@latest');
-    }
+  if (!choices.openspec) {
+    console.log('    ~ skipped (per your choice)');
   } else {
-    console.log('    ✅ OpenSpec already installed');
-  }
-
-  if (hasOpenSpec && !scan.existing.openspec) {
-    console.log('    Initializing OpenSpec in project...');
+    let hasOpenSpec = false;
     try {
-      execSync('openspec init', { cwd: targetDir, stdio: 'pipe' });
-      console.log('    + openspec/ initialized');
+      execSync('openspec --version', { stdio: 'pipe' });
+      hasOpenSpec = true;
+    } catch {}
+
+    if (!hasOpenSpec) {
+      console.log('    Installing OpenSpec...');
       try {
-        execSync('openspec update', { cwd: targetDir, stdio: 'pipe' });
-        console.log('    + /opsx:* commands registered');
-      } catch {}
-    } catch {
-      console.log('    ⚠️  openspec init needs interactive input — run manually: openspec init');
+        execSync(`npm install -g ${OPENSPEC_PKG}`, { stdio: 'pipe' });
+        hasOpenSpec = true;
+        console.log('    + OpenSpec installed globally');
+      } catch {
+        console.log(`    ⚠️  Failed to install OpenSpec — install manually: npm i -g ${OPENSPEC_PKG}`);
+      }
+    } else {
+      console.log('    ✅ OpenSpec already installed');
     }
-  } else if (scan.existing.openspec) {
-    console.log('    ✅ OpenSpec already initialized');
+
+    if (hasOpenSpec && !scan.existing.openspec) {
+      console.log('    Initializing OpenSpec in project...');
+      try {
+        execSync('openspec init', { cwd: targetDir, stdio: 'pipe' });
+        console.log('    + openspec/ initialized');
+        try {
+          execSync('openspec update', { cwd: targetDir, stdio: 'pipe' });
+          console.log('    + /opsx:* commands registered');
+        } catch {}
+      } catch {
+        console.log('    ⚠️  openspec init needs interactive input — run manually: openspec init');
+      }
+    } else if (scan.existing.openspec) {
+      console.log('    ✅ OpenSpec already initialized');
+    }
   }
 
   // ── Phase 6: Summary ──
@@ -782,15 +847,24 @@ function init(targetDir) {
   console.log('');
   console.log(`  Detected: ${scan.detectedStack}`);
   console.log('');
+
+  // Report what actually landed (counts read from disk, so interactive skips
+  // and the current command/skill set are always reflected accurately).
+  const countMd = (dir) =>
+    fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.md')).length : 0;
+  const countSubdirs = (dir) =>
+    fs.existsSync(dir) ? fs.readdirSync(dir, { withFileTypes: true }).filter(e => e.isDirectory()).length : 0;
+  const claude = (d) => path.join(targetDir, '.claude', d);
+
   console.log('  Installed:');
-  console.log('    ✅ 6 commands     (/project:TeamAI:CodeReview, PRReady, etc.)');
-  console.log('    ✅ 6 agents       (backend, frontend, planning, security, pr-review, standards)');
-  console.log('    ✅ 3 rules        (code-quality, security, agent-orchestration)');
+  console.log(`    ✅ ${countMd(claude('commands'))} commands`);
+  console.log(`    ✅ ${countMd(claude('agents'))} agents`);
+  console.log(`    ✅ ${countMd(claude('rules'))} rules`);
+  console.log(`    ✅ ${countSubdirs(claude('skills'))} skills   (pr-deep-review, keys-scan, check-standards)`);
   console.log('    ✅ MCP servers    (Context7, Playwright — auto-download on launch)');
-  console.log('    ✅ Pre-commit     (secrets scan, lint, format, build)');
-  console.log('    ✅ Style guide    (standards/style-guide.md)');
-  console.log('    ✅ CodeRabbit     (.coderabbit.yaml)');
-  console.log(`    ${hasOpenSpec && !scan.existing.openspec ? '✅' : '🟡'} OpenSpec       ${hasOpenSpec ? '(installed)' : '(install manually)'}`);
+  if (fs.existsSync(path.join(targetDir, 'standards', 'style-guide.md'))) console.log('    ✅ Style guide    (standards/style-guide.md)');
+  if (fs.existsSync(path.join(targetDir, '.coderabbit.yaml'))) console.log('    ✅ CodeRabbit     (.coderabbit.yaml)');
+  if (fs.existsSync(path.join(targetDir, 'openspec'))) console.log('    ✅ OpenSpec       (initialized)');
   console.log('');
   console.log('  Next steps:');
   console.log('    1. Edit CLAUDE.md — fill in the TODO sections (project overview, architecture, conventions)');
@@ -799,4 +873,4 @@ function init(targetDir) {
   console.log('');
 }
 
-module.exports = { init, scanProject };
+module.exports = { init, scanProject, copyPluginFiles };
