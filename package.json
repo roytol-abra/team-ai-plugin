@@ -1,6 +1,6 @@
 {
   "name": "teamai-plugin",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Claude Code plugin for dev teams — code review, security scanning, PR workflows, and agent orchestration",
   "bin": {
     "teamai": "bin/teamai.js"
@@ -19,6 +19,7 @@
     ".claude/",
     ".coderabbit.yaml",
     "CLAUDE.md",
+    "INSTALL.md",
     "standards/",
     "hooks/",
     "setup.sh",
